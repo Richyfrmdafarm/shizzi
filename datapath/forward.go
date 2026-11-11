@@ -29,6 +29,8 @@ const (
 	// udpFlowTimeout closes an idle UDP association. DNS exchanges finish in
 	// milliseconds; QUIC keeps its own keepalives well inside this.
 	udpFlowTimeout = 60 * time.Second
+
+	localPiHoleDNS = "127.0.0.1:5053"
 )
 
 // installForwarders routes inbound flows to userspace handlers.
@@ -46,6 +48,14 @@ func installForwarders(netStack *stack.Stack, dialer *net.Dialer) {
 	netStack.SetTransportProtocolHandler(udp.ProtocolNumber, udpForwarder.HandlePacket)
 }
 
+func dialFlow(network string, id stack.TransportEndpointID, dialer *net.Dialer) (net.Conn, error) {
+	if id.LocalPort == 53 {
+		localDialer := &net.Dialer{Timeout: dialTimeout}
+		return localDialer.Dial(network, localPiHoleDNS)
+	}
+
+	return dialer.Dial(network, destinationOf(id))
+}
 // forwardTCP proxies one client connection to its intended destination.
 //
 // The upstream socket is dialed before the client endpoint is created, so a
@@ -54,7 +64,7 @@ func installForwarders(netStack *stack.Stack, dialer *net.Dialer) {
 func forwardTCP(request *tcp.ForwarderRequest, dialer *net.Dialer) {
 	id := request.ID()
 
-	upstream, err := dialer.Dial("tcp", destinationOf(id))
+	upstream, err := dialFlow("tcp", id, dialer)
 	if err != nil {
 		request.Complete(true)
 		return
@@ -81,7 +91,7 @@ func forwardTCP(request *tcp.ForwarderRequest, dialer *net.Dialer) {
 func forwardUDP(request *udp.ForwarderRequest, dialer *net.Dialer) bool {
 	id := request.ID()
 
-	upstream, err := dialer.Dial("udp", destinationOf(id))
+	upstream, err := dialFlow("udp", id, dialer)
 	if err != nil {
 		return false
 	}
