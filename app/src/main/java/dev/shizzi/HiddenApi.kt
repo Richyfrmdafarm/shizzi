@@ -128,7 +128,7 @@ object HiddenApiCatalog {
 }
 
 val TEST_NETWORK_DNS_SERVERS: List<InetAddress>
-    get() = listOf("2001:4860:4860::8888", "8.8.8.8").map(InetAddress::getByName)
+    get() = listOf("2001:db8::53", "192.0.2.53").map(InetAddress::getByName)
 
 fun buildLinkAddress(address: InetAddress, prefixLength: Int): LinkAddress {
     val constructor = LinkAddress::class.java
